@@ -1,3 +1,6 @@
 [submodule "MeshShaderRasterization/VulkanMemoryAllocator"]
 	path = MeshShaderRasterization/VulkanMemoryAllocator
 	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+[submodule "MeshShaderRasterization/volk"]
+	path = MeshShaderRasterization/volk
+	url = https://github.com/zeux/volk.git

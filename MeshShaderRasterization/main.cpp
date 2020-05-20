@@ -1,4 +1,6 @@
 #include "InstanceDeviceAndSwapchain.h"
+#include "MeshShadingRenderLoop.h"
+#include "ParameterizedMesh.h"
 
 #include <atomic>
 
@@ -25,6 +27,8 @@ int main(char* argv[])
 	int result = 0;
 
 	InstanceDeviceAndSwapchain instanceDeviceAndSwapchain;
+	MeshShadingRenderLoop renderLoop;
+	ParameterizedMesh parameterizedMesh;
 
 	void* platformWindowHandle = nullptr;
 #ifdef _WIN32
@@ -68,6 +72,10 @@ int main(char* argv[])
 		goto end;
 	}
 
+	renderLoop.Initialize(instanceDeviceAndSwapchain);
+	parameterizedMesh.Initialize(instanceDeviceAndSwapchain);
+	renderLoop.AddMeshInstance(&parameterizedMesh);
+
 	while (!g_exitRequested.load())
 	{
 #if _WIN32
@@ -83,45 +91,8 @@ int main(char* argv[])
 #endif
 
 		instanceDeviceAndSwapchain.BeginFrame();
-		if (instanceDeviceAndSwapchain.HasSwapchain())
-		{
-			instanceDeviceAndSwapchain.WaitForSwapchainImage();
-
-			VkCommandBuffer commandBuffer = instanceDeviceAndSwapchain.GetCommandBuffer();
-
-			VkImageSubresourceRange range;
-			range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			range.baseMipLevel = 0;
-			range.levelCount = 1;
-			range.baseArrayLayer = 0;
-			range.layerCount = 1;
-
-			VkImageMemoryBarrier imageMemoryBarrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, nullptr };
-			imageMemoryBarrier.srcAccessMask = 0;
-			imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-			imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-			imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-			imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-			imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-			imageMemoryBarrier.image = instanceDeviceAndSwapchain.GetAcquiredImage();
-			imageMemoryBarrier.subresourceRange = range;
-			vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
-
-			VkClearColorValue clearColor;
-			clearColor.float32[0] = 1;
-			clearColor.float32[1] = 0;
-			clearColor.float32[2] = 0;
-			clearColor.float32[3] = 1;
-			vkCmdClearColorImage(commandBuffer, instanceDeviceAndSwapchain.GetAcquiredImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColor, 1, &range);
-
-			imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-			imageMemoryBarrier.dstAccessMask = 0;
-			imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-			imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-			vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
-
-			instanceDeviceAndSwapchain.EndFrame();
-		}
+		renderLoop.RenderLoop(instanceDeviceAndSwapchain);
+		instanceDeviceAndSwapchain.EndFrame();
 	}
 
 end:
@@ -131,6 +102,5 @@ end:
 	UnregisterClass(wndclass.lpszClassName, HINSTANCE(GetModuleHandle(nullptr)));
 #endif
 
-	system("pause");
 	return result;
 }

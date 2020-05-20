@@ -3,8 +3,14 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="InstanceDeviceAndSwapchain.cpp" />
+    <ClCompile Include="ShaderModule.cpp" />
+    <ClCompile Include="MeshShadingRenderLoop.cpp" />
+    <ClCompile Include="ParameterizedMesh.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="InstanceDeviceAndSwapchain.h" />
+    <ClInclude Include="ShaderModule.h" />
+    <ClInclude Include="MeshShadingRenderLoop.h" />
+    <ClInclude Include="ParameterizedMesh.h" />
   </ItemGroup>
 </Project>
