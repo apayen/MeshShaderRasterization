@@ -173,8 +173,7 @@ void processTriangle(uint ia, uint ib, uint ic)
 
     pixelquad = (pixelquad + 1) / 2;
     pixelquad *= viewportSize.xyxy;
-    pixelquad.xy = ceil(pixelquad.xy - 0.5);    // here we want to round down (X if <= X.5, X+1 else)
-    pixelquad.zw = floor(pixelquad.zw + 0.5);   // here we want to round up   (X if <  X.5, X+1 else)
+    pixelquad = ceil(pixelquad - 0.5); // we want to round down (X if <= X.5, X+1 else)
 
     vec2 pixelsize = pixelquad.zw - pixelquad.xy;
     if (max(pixelsize.x, pixelsize.y) > 1)
