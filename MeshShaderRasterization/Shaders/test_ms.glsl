@@ -117,9 +117,9 @@ void processVertex(uint vertexId, vec2 tileOffset, int mipLevel)
         pos.y = vertexId / 9;
         pos.x = vertexId - (pos.y * 9);
 
-        vec2 uv = (tileOffset + vec2(pos)) / 1024;// / vec2(textureSize(positionTexture, mipLevel));
+        vec2 uv = (tileOffset + vec2(pos)) / vec2(512, 256);// / vec2(textureSize(positionTexture, mipLevel));
 
-        gl_MeshVerticesNV[vertexId].gl_Position = vec4(vec4(uv-1, 0.5, 1) * IN.modelToWorldMatrix, 1);
+        gl_MeshVerticesNV[vertexId].gl_Position = vec4(vec4(uv-1, 0.25, 1) * IN.modelToWorldMatrix, 1);
         //gl_MeshVerticesNV[vertexId].gl_Position = vec4(textureLod(positionTexture, uv, mipLevel).xy, 0.5, 1);
         //gl_MeshVerticesNV[vertexId].gl_Position = vec4(vec4(textureLod(positionTexture, uv, mipLevel).xyz, 1) * IN.modelToWorldMatrix, 1) * projectionMatrix;
 #if defined(GBUFFER_PASS)
@@ -173,9 +173,10 @@ void processTriangle(uint ia, uint ib, uint ic)
 
     pixelquad = (pixelquad + 1) / 2;
     pixelquad *= viewportSize.xyxy;
+    pixelquad = round(pixelquad);
 
     vec2 pixelsize = pixelquad.zw - pixelquad.xy;
-    if (max(pixelsize.x, pixelsize.y) >= 1)
+    if (max(pixelsize.x, pixelsize.y) > 1)
     {
         // output the triangle for normal rasterization
         uvec4 vote = subgroupBallot(true);
@@ -187,9 +188,9 @@ void processTriangle(uint ia, uint ib, uint ic)
 
         s_primsToExport += subgroupBallotBitCount(vote);
     }
-    else
+    else if (min(pixelsize.x, pixelsize.y) > 0)
     {
-        vec2 pixelpos = round((pixelquad.xy + pixelquad.zw)/2);
+        vec2 pixelpos = (pixelquad.xy + pixelquad.zw)/2;
 
         vec2 bary = BaryTri3D((pixelpos * viewportSize.zw)*2 - 1, pa, pb, pc);
 

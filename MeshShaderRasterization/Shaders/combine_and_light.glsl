@@ -29,6 +29,6 @@ void main()
         vec3 albedo = textureLod(albedoTextureArray, pos, 0).xyz;
         vec3 normal = textureLod(normalTextureArray, pos, 0).xyz;
 
-        imageStore(swapchainImage, vpos, vec4(albedo, 0));
+        imageStore(swapchainImage, vpos, vec4(1-framebufferDepth.x, 1-meshShaderDepth.x, 0, 0));
     }
 }
