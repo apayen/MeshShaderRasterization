@@ -527,8 +527,6 @@ auto InstanceDeviceAndSwapchain::EndFrame() -> bool
 		result = vkQueueSubmit(m_queue, 1, &submitInfo, m_frameExecutionContexts[m_currentFrameExecutionContext].m_allCommandsCompleted);
 	}
 
-	vkQueueWaitIdle(m_queue);
-
 	++m_currentFrameExecutionContext;
 	if (m_currentFrameExecutionContext >= m_frameExecutionContexts.size())
 		m_currentFrameExecutionContext = 0;
