@@ -19,7 +19,7 @@ void main()
     if (all(lessThan(vpos, swapchainSize)))
     {
         ivec2 buffersSize = textureSize(framebufferDepthTexture, 0);
-        vec3 pos = vec3(vec2(gl_GlobalInvocationID.xy)/vec2(buffersSize), 0);
+        vec3 pos = vec3((vec2(gl_GlobalInvocationID.xy)+0.5)/vec2(buffersSize), 0);
 
         float framebufferDepth = textureLod(framebufferDepthTexture, pos.xy, 0).x;
         float meshShaderDepth = uintBitsToFloat(textureLod(meshShaderDepthTexture, pos.xy, 0).x);

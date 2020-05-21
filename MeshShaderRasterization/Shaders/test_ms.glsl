@@ -30,7 +30,7 @@ ivec3 unpackMegatile(uint megatile)
 
 out gl_MeshPerVertexNV
 {
-    vec4 gl_Position;
+    precise vec4 gl_Position;
 } gl_MeshVerticesNV[];
 
 #if defined(GBUFFER_PASS)
@@ -45,7 +45,7 @@ shared uint    s_primsToExport;
 shared uint    s_pixelsToRaster;
 shared u16vec2 s_pixelPos[128];         // packed 2x16
 shared u8vec4  s_pixelTriIndices[128];  // packed 3x8
-shared uint    s_pixelBary[128];           // packed 2x16f
+shared uint    s_pixelBary[128];        // packed 2x16f
 
 layout(set=0, binding=0, std140) uniform sceneBuffer
 {
@@ -117,9 +117,9 @@ void processVertex(uint vertexId, vec2 tileOffset, int mipLevel)
         pos.y = vertexId / 9;
         pos.x = vertexId - (pos.y * 9);
 
-        vec2 uv = (tileOffset + vec2(pos)) / vec2(512, 256);// / vec2(textureSize(positionTexture, mipLevel));
+        vec2 uv = (tileOffset + vec2(pos)) / vec2(256, 128);// / vec2(textureSize(positionTexture, mipLevel));
 
-        gl_MeshVerticesNV[vertexId].gl_Position = vec4(vec4(uv-1, 0.25, 1) * IN.modelToWorldMatrix, 1);
+        gl_MeshVerticesNV[vertexId].gl_Position = vec4(vec4(uv-1, 0.25, 1) * IN.modelToWorldMatrix, 2);
         //gl_MeshVerticesNV[vertexId].gl_Position = vec4(textureLod(positionTexture, uv, mipLevel).xy, 0.5, 1);
         //gl_MeshVerticesNV[vertexId].gl_Position = vec4(vec4(textureLod(positionTexture, uv, mipLevel).xyz, 1) * IN.modelToWorldMatrix, 1) * projectionMatrix;
 #if defined(GBUFFER_PASS)
@@ -129,21 +129,48 @@ void processVertex(uint vertexId, vec2 tileOffset, int mipLevel)
     }
 }
 
+void exportTriangleForRaterization(uint ia, uint ib, uint ic)
+{
+    uvec4 vote = subgroupBallot(true);
+    uint  index = s_primsToExport + subgroupBallotExclusiveBitCount(vote);
+
+    gl_PrimitiveIndicesNV[3*index + 0] = ia;
+    gl_PrimitiveIndicesNV[3*index + 1] = ib;
+    gl_PrimitiveIndicesNV[3*index + 2] = ic;
+
+    s_primsToExport += subgroupBallotBitCount(vote);
+}
+
 void processTriangle(uint ia, uint ib, uint ic)
 {
     vec4 pa = gl_MeshVerticesNV[ia].gl_Position;
     vec4 pb = gl_MeshVerticesNV[ib].gl_Position;
     vec4 pc = gl_MeshVerticesNV[ic].gl_Position;
 
-    // discard triangles that crosses near or far clip plane
-    if (any(lessThanEqual(vec3(pa.z, pb.z, pc.z), vec3(0))) || any(greaterThanEqual(vec3(pa.z, pb.z, pc.z), vec3(1))))
-        return;
+    pa.xyz /= pa.w;
+    pb.xyz /= pb.w;
+    pc.xyz /= pc.w;
 
-    // face culling
     if (determinant(mat2(pb.xy - pa.xy, pc.xy - pa.xy)) <= 0)
+    {
+        // face culling
         return;
+    }
 
-    vec4 pixelquad; // xy: min, zw: max of the 3 vertices clipspace xy
+    if (all(lessThan(vec3(pa.z, pb.z, pc.z), vec3(0))) || all(greaterThan(vec3(pa.z, pb.z, pc.z), vec3(1))))
+    {
+        // early discard triangles that are in front of the near plane or behind the far plane
+        return;
+    }
+
+    if (any(lessThan(vec3(pa.z, pb.z, pc.z), vec3(0))) || any(greaterThan(vec3(pa.z, pb.z, pc.z), vec3(1))))
+    {
+        // triangles that crosses near or far clip plane are exported for rasterization
+        exportTriangleForRaterization(ia, ib, ic);
+        return;
+    }
+
+    precise vec4 pixelquad; // xy: min, zw: max of the 3 vertices clipspace xy
 
     // triminmax (available on AMD) would help here
     if (pa.x > pb.x)
@@ -167,32 +194,40 @@ void processTriangle(uint ia, uint ib, uint ic)
         pixelquad.w = max(pb.y, pc.y);
     }
 
-    // clip bounds
-    if (any(greaterThan(abs(pixelquad.xy), vec2(1))))
+    if (any(lessThan(pixelquad.xy, vec2(-1))) || any(greaterThan(pixelquad.zw, vec2(1))))
+    {
+        // discard triangles fully outside of clipspace
         return;
+    }
 
     pixelquad = (pixelquad + 1) / 2;
     pixelquad *= viewportSize.xyxy;
-    pixelquad = ceil(pixelquad - 0.5); // we want to round down (X if <= X.5, X+1 else)
+    pixelquad = ceil(pixelquad - 0.5 + vec4(-0.005, -0.005, 0.005, 0.005)); // todo: fixme
 
     vec2 pixelsize = pixelquad.zw - pixelquad.xy;
-    if (max(pixelsize.x, pixelsize.y) > 1)
+    if (min(pixelsize.x, pixelsize.y) <= 0)
+    {
+        // cull triangles so small they do not even cover one pixel
+        return;
+    }
+    else if (max(pixelsize.x, pixelsize.y) > 1)
     {
         // output the triangle for normal rasterization
-        uvec4 vote = subgroupBallot(true);
-        uint  index = s_primsToExport + subgroupBallotExclusiveBitCount(vote);
-
-        gl_PrimitiveIndicesNV[3*index + 0] = ia;
-        gl_PrimitiveIndicesNV[3*index + 1] = ib;
-        gl_PrimitiveIndicesNV[3*index + 2] = ic;
-
-        s_primsToExport += subgroupBallotBitCount(vote);
+        exportTriangleForRaterization(ia, ib, ic);
     }
-    else if (min(pixelsize.x, pixelsize.y) > 0)
+    else 
     {
+        // this pixel will be shader rasterized
         vec2 pixelpos = (pixelquad.xy + pixelquad.zw)/2;
 
-        vec2 bary = BaryTri3D((pixelpos * viewportSize.zw)*2 - 1, pa, pb, pc);
+        // discard single pixel outside of clipspace
+        if (any(lessThan(pixelpos, vec2(0))) || any(greaterThanEqual(pixelpos, viewportSize.xy)))
+        {
+            exportTriangleForRaterization(ia, ib, ic);
+            return;
+        }
+
+        precise vec2 bary = BaryTri3D((pixelpos * viewportSize.zw)*2 - 1, pa, pb, pc);
 
         // the pixel is actually inside of the triangle
         if (all(greaterThanEqual(bary, vec2(0))) && all(lessThanEqual(bary, vec2(1))))
@@ -215,14 +250,7 @@ void processQuad(uint quadId)
 {
     uint pos = (quadId >> 3)*9 + (quadId & 0x7);
     processTriangle(pos, pos + 1, pos + 9);
-
-    memoryBarrierShared();
-    barrier();
-
     processTriangle(pos + 1, pos + 10, pos + 9);
-
-    memoryBarrierShared();
-    barrier();
 }
 
 void rasterPixel(uint index)
@@ -240,7 +268,7 @@ void rasterPixel(uint index)
     vec4 pc = gl_MeshVerticesNV[ic].gl_Position;
 
     vec2 zw = mix(pa.zw, mix(pb.zw, pc.zw, bary.y), bary.x);
-    float d = 0.5;//zw.x/zw.y;
+    float d = zw.x/zw.y;
 
 #if defined(DEPTH_PASS)
     imageAtomicMin(depthBuffer, pixelpos, floatBitsToUint(d));
@@ -272,7 +300,7 @@ void main()
     {
         processVertex(i*32 + gl_LocalInvocationID.x, tilePos, megatile.z);
     }
-    
+
     memoryBarrierShared();
     barrier();
 
@@ -280,6 +308,9 @@ void main()
     {
         processQuad(i*32 + gl_LocalInvocationID.x);
     }
+
+    memoryBarrierShared();
+    barrier();
 
     uint loops = (s_pixelsToRaster + 31) / 32;
     for (uint i = 0; i < loops; ++i)
@@ -291,14 +322,8 @@ void main()
         }
     }
 
-    memoryBarrierShared();
-    barrier();
-
     if (gl_LocalInvocationID.x == 0)
     {
         gl_PrimitiveCountNV = s_primsToExport;
     }
-
-    memoryBarrierShared();
-    barrier();
 }
