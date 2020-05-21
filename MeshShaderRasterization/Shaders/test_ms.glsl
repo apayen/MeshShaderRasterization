@@ -117,14 +117,14 @@ void processVertex(uint vertexId, vec2 tileOffset, int mipLevel)
         pos.y = vertexId / 9;
         pos.x = vertexId - (pos.y * 9);
 
-        vec2 uv = (tileOffset + vec2(pos)) / vec2(256, 128);// / vec2(textureSize(positionTexture, mipLevel));
+        vec2 uv = (tileOffset + vec2(pos)) / vec2(textureSize(positionTexture, mipLevel));
 
-        gl_MeshVerticesNV[vertexId].gl_Position = vec4(vec4(uv-1, 0.25, 1) * IN.modelToWorldMatrix, 2);
+        //gl_MeshVerticesNV[vertexId].gl_Position = vec4(vec4(uv-1, 0.25, 1) * IN.modelToWorldMatrix, 2);
         //gl_MeshVerticesNV[vertexId].gl_Position = vec4(textureLod(positionTexture, uv, mipLevel).xy, 0.5, 1);
-        //gl_MeshVerticesNV[vertexId].gl_Position = vec4(vec4(textureLod(positionTexture, uv, mipLevel).xyz, 1) * IN.modelToWorldMatrix, 1) * projectionMatrix;
+        gl_MeshVerticesNV[vertexId].gl_Position = vec4(vec4(textureLod(positionTexture, uv, mipLevel).xyz, 1) * IN.modelToWorldMatrix, 1) * projectionMatrix;
 #if defined(GBUFFER_PASS)
         OUT[vertexId].albedo = textureLod(albedoTexture, uv, mipLevel).xyz;
-        OUT[vertexId].normal = textureLod(normalTexture, uv, mipLevel).xyz * mat3(IN.modelToWorldMatrix);
+        OUT[vertexId].normal = normalize(textureLod(normalTexture, uv, mipLevel).xyz * mat3(IN.modelToWorldMatrix) * 2 - 1);
 #endif
     }
 }
@@ -277,7 +277,7 @@ void rasterPixel(uint index)
     if (d == olddepth)
     {
         imageStore(albedoBuffer, pixelpos, vec4(mix(OUT[ia].albedo, mix(OUT[ib].albedo, OUT[ib].albedo, bary.y), bary.x), 0));
-        imageStore(normalBuffer, pixelpos, vec4(mix(OUT[ia].normal, mix(OUT[ib].normal, OUT[ib].normal, bary.y), bary.x), 0));
+        imageStore(normalBuffer, pixelpos, (normalize(vec4(mix(OUT[ia].normal, mix(OUT[ib].normal, OUT[ib].normal, bary.y), bary.x), 0)) + 1) / 2);
     }
 #endif
 }

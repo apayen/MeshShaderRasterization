@@ -606,6 +606,8 @@ auto MeshShadingRenderLoop::RenderLoop(InstanceDeviceAndSwapchain& deviceAndSwap
 		constants.projectionMatrix[1][0] = 0; constants.projectionMatrix[1][1] = 1; constants.projectionMatrix[1][2] = 0; constants.projectionMatrix[1][3] = 0;
 		constants.projectionMatrix[2][0] = 0; constants.projectionMatrix[2][1] = 0; constants.projectionMatrix[2][2] = 1; constants.projectionMatrix[2][3] = 0.5f;
 		constants.projectionMatrix[3][0] = 0; constants.projectionMatrix[3][1] = 0; constants.projectionMatrix[3][2] = 0; constants.projectionMatrix[3][3] = 1;
+
+		constants.projectionMatrix[1][1] *= float(swapchainExtent.width) / float(swapchainExtent.height);
 		
 		constants.viewportSize[0] = float(swapchainExtent.width);
 		constants.viewportSize[1] = float(swapchainExtent.height);
@@ -728,7 +730,7 @@ auto MeshShadingRenderLoop::RenderLoop(InstanceDeviceAndSwapchain& deviceAndSwap
 	for (ParameterizedMesh const* mesh : m_meshInstances)
 	{
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicPipelineLayout, 1, 1, &mesh->GetDescriptorSet(), 0, nullptr);
-		vkCmdDrawMeshTasksNV(commandBuffer, 1, 0);
+		vkCmdDrawMeshTasksNV(commandBuffer, 256, 0);
 	}
 
 	// TRANSITION DEPTH
@@ -745,7 +747,7 @@ auto MeshShadingRenderLoop::RenderLoop(InstanceDeviceAndSwapchain& deviceAndSwap
 	for (ParameterizedMesh const* mesh : m_meshInstances)
 	{
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicPipelineLayout, 1, 1, &mesh->GetDescriptorSet(), 0, nullptr);
-		vkCmdDrawMeshTasksNV(commandBuffer, 1, 0);
+		vkCmdDrawMeshTasksNV(commandBuffer, 256, 0);
 	}
 
 	// END RENDER PASS

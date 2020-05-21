@@ -1,5 +1,7 @@
 
 #include "ParameterizedMesh.h"
+#include <cmath>
+#include <algorithm>
 
 auto ParameterizedMesh::Initialize(InstanceDeviceAndSwapchain& device) -> bool
 {
@@ -8,7 +10,7 @@ auto ParameterizedMesh::Initialize(InstanceDeviceAndSwapchain& device) -> bool
 	VkDevice vkDevice = device.GetDevice();
 	VmaAllocator allocator = device.GetAllocator();
 
-	const uint32_t size = 1024;
+	const uint32_t size = 8192;
 
 	{
 		VmaAllocationCreateInfo allocationCreateInfo;
@@ -74,27 +76,34 @@ auto ParameterizedMesh::Initialize(InstanceDeviceAndSwapchain& device) -> bool
 		vkFlushMappedMemoryRanges(vkDevice, 1, &memoryRange);
 		vkUnmapMemory(vkDevice, allocationInfo.deviceMemory);
 
-		uint32_t* udata = (uint32_t*)(data);
-		for (uint32_t y = 0; y < size; ++y)
-		{
-			for (uint32_t x = 0; x < size; ++x)
-			{
-				*(udata++) = ((y & 0x3ff) << 10) | (x & 0x3ff);
-			}
-		}
+		const float pi = 3.14159265359f;
 
-		for (uint32_t y = 0; y < size; ++y)
+		uint32_t* position = (uint32_t*)(data);
+		uint32_t* albedo = position + size * size;
+		uint32_t* normal = albedo + size * size;
+
+		for (uint32_t i = 0; i < size; ++i)
 		{
-			for (uint32_t x = 0; x < size; ++x)
+			float y = std::sin(i / float(size - 1) * 2 * pi) / 2.0f + 0.5f;
+			float r = std::cos(i / float(size - 1) * 2 * pi);
+			for (uint32_t j = 0; j < size; ++j)
 			{
-				*(udata++) = 0xff0000ff;
-			}
-		}
-		for (uint32_t y = 0; y < size; ++y)
-		{
-			for (uint32_t x = 0; x < size; ++x)
-			{
-				*(udata++) = 0xffff0000;
+				float z = r * std::sin(j / float(size - 1) * 2 * pi) / 2.0f + 0.5f;
+				float x = r * std::cos(j / float(size - 1) * 2 * pi) / 2.0f + 0.5f;
+				*(position++) = (uint32_t(std::clamp(x, 0.0f, 1.0f) * 1023.0f) << 0)
+					          | (uint32_t(std::clamp(y, 0.0f, 1.0f) * 1023.0f) << 10)
+					          | (uint32_t(std::clamp(z, 0.0f, 1.0f) * 1023.0f) << 20)
+					          ;
+
+				*(albedo++) = 0xff000000
+						    | ((j & 0xff) << 8)
+						    | ((i & 0xff) << 0)
+						    ;
+
+				*(normal++) = (uint32_t(std::clamp(x, 0.0f, 1.0f) * 255.0f) << 0)
+					        | (uint32_t(std::clamp(y, 0.0f, 1.0f) * 255.0f) << 8)
+					        | (uint32_t(std::clamp(z, 0.0f, 1.0f) * 255.0f) << 16)
+					        ;
 			}
 		}
 

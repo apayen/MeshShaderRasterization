@@ -19,14 +19,24 @@ uint packMegatile(ivec3 megatile)
     return (megatile.x << 20) | (megatile.y << 8) | megatile.z;
 }
 
+void exportMegatile(uint index, ivec2 base, uint mip)
+{
+    OUT.megatile[index] = packMegatile(ivec3(ivec2(index >> 3, index & 0x7) + base, mip));
+}
+
 void main()
 {
+    ivec2 base = ivec2(gl_WorkGroupID.x & 0xf, gl_WorkGroupID.x >> 4) * 8;
+    for (uint i = 0; i < 2; ++i)
+    {
+        exportMegatile(i * 32 + gl_LocalInvocationID.x, base, 0);
+    }
+
     if (gl_LocalInvocationID.x == 0)
     {
-        OUT.modelToWorldMatrix = mat3x4(1, 0, 0, 0,
-                                        0, 1, 0, 0,
+        OUT.modelToWorldMatrix = mat3x4(1, 0, 0, -0.5,
+                                        0, 1, 0, -0.5,
                                         0, 0, 1, 0);
-        OUT.megatile[0] = packMegatile(ivec3(0, 0, 0));
-        gl_TaskCountNV = 64;
+        gl_TaskCountNV = 64 * 64;
     }
 }

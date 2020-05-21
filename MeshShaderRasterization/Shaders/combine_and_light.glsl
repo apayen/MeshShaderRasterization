@@ -27,8 +27,14 @@ void main()
         pos.z = step(meshShaderDepth, framebufferDepth);
 
         vec3 albedo = textureLod(albedoTextureArray, pos, 0).xyz;
-        vec3 normal = textureLod(normalTextureArray, pos, 0).xyz;
+        vec3 normal = textureLod(normalTextureArray, pos, 0).xyz * 2 - 1;
 
-        imageStore(swapchainImage, vpos, vec4(1-framebufferDepth.x, 1-meshShaderDepth.x, 0, 0));
+        vec3 light = vec3(1, 1, 1) * mix(0.4, 1, clamp(-dot(normal, normalize(vec3(1, 1, 1))), 0, 1));
+        vec3 outcolor = albedo * light;
+
+        outcolor = pow(outcolor, vec3(2.2));
+
+        //imageStore(swapchainImage, vpos, vec4(1-framebufferDepth.x, 1-meshShaderDepth.x, 0, 0));
+        imageStore(swapchainImage, vpos, vec4(outcolor, pos.z));
     }
 }
