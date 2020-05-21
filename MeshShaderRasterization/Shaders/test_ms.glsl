@@ -67,7 +67,7 @@ layout(set=1, binding=1 )uniform sampler2D albedoTexture;
 layout(set=1, binding=2 )uniform sampler2D normalTexture;
 #endif
 
-// courtesy of Tom Forsyth https://www.shadertoy.com/view/wdjfz1
+// BaryTri3D courtesy of Tom Forsyth https://www.shadertoy.com/view/wdjfz1
 // (adapted to use vec4 instead of Vertex struct)
 // -------------------------------------------------------------------
 // Test a position against a triangle and return
@@ -119,8 +119,6 @@ void processVertex(uint vertexId, vec2 tileOffset, int mipLevel)
 
         vec2 uv = (tileOffset + vec2(pos)) / vec2(textureSize(positionTexture, mipLevel));
 
-        //gl_MeshVerticesNV[vertexId].gl_Position = vec4(vec4(uv-1, 0.25, 1) * IN.modelToWorldMatrix, 2);
-        //gl_MeshVerticesNV[vertexId].gl_Position = vec4(textureLod(positionTexture, uv, mipLevel).xy, 0.5, 1);
         gl_MeshVerticesNV[vertexId].gl_Position = vec4(vec4(textureLod(positionTexture, uv, mipLevel).xyz, 1) * IN.modelToWorldMatrix, 1) * projectionMatrix;
 #if defined(GBUFFER_PASS)
         OUT[vertexId].albedo = textureLod(albedoTexture, uv, mipLevel).xyz;

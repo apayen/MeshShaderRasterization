@@ -96,8 +96,9 @@ auto ParameterizedMesh::Initialize(InstanceDeviceAndSwapchain& device) -> bool
 					          ;
 
 				*(albedo++) = 0xff000000
-						    | ((j & 0xff) << 8)
 						    | ((i & 0xff) << 0)
+						    | ((j & 0xff) << 8)
+							| ((0xff - (i & 0xff)/2 - (j & 0xff)/2) << 16)
 						    ;
 
 				*(normal++) = (uint32_t(std::clamp(x, 0.0f, 1.0f) * 255.0f) << 0)
